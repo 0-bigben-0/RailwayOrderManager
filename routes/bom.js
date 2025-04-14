@@ -1,17 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const BOMItem = require("../models/BOM"); // Ensure this path is correct
-const SalesOrder = require('../models/SalesOrder');
+const SalesOrder = require("../models/SalesOrder");
 
 // Middleware to handle JSON requests
 router.use(express.json());
 
-router.get('/:id', async (req, res) => {
+/**
+ * Get a single BOM item by ID
+ */
+router.get("/:id", async (req, res) => {
     const { id } = req.params;
     try {
         const bom = await BOMItem.findById(id).populate({
-            path: 'salesOrderId', // assuming the field in BOM schema is salesOrderId
-            select: 'salesOrderNumber', // only get this field
+            path: "salesOrderId", // Assuming the field in BOM schema is salesOrderId
+            select: "salesOrderNumber", // Only get this field
         });
 
         if (!bom) {
@@ -21,7 +24,7 @@ router.get('/:id', async (req, res) => {
         // Manually attach salesOrderNumber for frontend
         const bomWithOrderNumber = {
             ...bom.toObject(),
-            salesOrderNumber: bom.salesOrderId?.salesOrderNumber || null
+            salesOrderNumber: bom.salesOrderId?.salesOrderNumber || null,
         };
 
         res.json(bomWithOrderNumber);
@@ -30,19 +33,23 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Get all BOM items for a Sales Order
-router.get('/salesOrder/:salesOrderId', async (req, res) => {
+/**
+ * Get all BOM items for a specific Sales Order
+ */
+router.get("/salesOrder/:salesOrderId", async (req, res) => {
     const { salesOrderId } = req.params;
     try {
-        const items = await BOMItem.find({ salesOrderId: salesOrderId });
+        const items = await BOMItem.find({ salesOrderId });
         res.json(items);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Create a new BOM item
-router.post('/', async (req, res) => {
+/**
+ * Create a new BOM item
+ */
+router.post("/", async (req, res) => {
     try {
         const newItem = new BOMItem(req.body);
         await newItem.save();
@@ -52,8 +59,10 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Add raw materials to a BOM item
-router.post('/:bomId/raw-materials', async (req, res) => {
+/**
+ * Add raw materials to a BOM item
+ */
+router.post("/:bomId/raw-materials", async (req, res) => {
     const { bomId } = req.params;
     const { name, specifications, quantity, unit, vendor } = req.body;
     try {
@@ -68,8 +77,10 @@ router.post('/:bomId/raw-materials', async (req, res) => {
     }
 });
 
-// Approve a raw material (by index)
-router.patch('/:bomId/raw-materials/:index/approve', async (req, res) => {
+/**
+ * Approve a specific raw material by index
+ */
+router.patch("/:bomId/raw-materials/:index/approve", async (req, res) => {
     const { bomId, index } = req.params;
     try {
         const bomItem = await BOMItem.findById(bomId);
@@ -86,8 +97,10 @@ router.patch('/:bomId/raw-materials/:index/approve', async (req, res) => {
     }
 });
 
-// Update a BOM item
-router.put('/:id', async (req, res) => {
+/**
+ * Update a BOM item
+ */
+router.put("/:id", async (req, res) => {
     const { id } = req.params;
     try {
         const updated = await BOMItem.findByIdAndUpdate(id, req.body, { new: true });
@@ -98,8 +111,10 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Delete a BOM item
-router.delete('/:id', async (req, res) => {
+/**
+ * Delete a BOM item
+ */
+router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     try {
         const deleted = await BOMItem.findByIdAndDelete(id);
@@ -110,70 +125,106 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-
-
-router.patch('/:bomId/raw-material/status', async (req, res) => {
+/**
+ * Update the status of a raw material by its name
+ */
+router.patch("/:bomId/raw-material/status", async (req, res) => {
     const { bomId } = req.params;
     const { materialName, newStatus } = req.body;
-  
+
     const allowedStatuses = ["Pending", "Ordered", "In Transit", "Delivered"];
     if (!allowedStatuses.includes(newStatus)) {
-      return res.status(400).json({ error: "Invalid status" });
+        return res.status(400).json({ error: "Invalid status" });
     }
-  
+
     try {
-      const updatedBOM = await BOMItem.findOneAndUpdate(
-        { _id: bomId, "rawMaterials.name": materialName },
-        { $set: { "rawMaterials.$.status": newStatus } },
-        { new: true }
-      );
-  
-      if (!updatedBOM) return res.status(404).json({ error: "Raw material not found" });
-  
-      res.status(200).json(updatedBOM);
+        const updatedBOM = await BOMItem.findOneAndUpdate(
+            { _id: bomId, "rawMaterials.name": materialName },
+            { $set: { "rawMaterials.$.status": newStatus } },
+            { new: true }
+        );
+
+        if (!updatedBOM) return res.status(404).json({ error: "Raw material not found" });
+
+        res.status(200).json(updatedBOM);
     } catch (err) {
-      res.status(500).json({ error: "Server error", details: err });
+        res.status(500).json({ error: "Server error", details: err });
     }
-  });
-  router.get('/', async (req, res) => {
+});
+
+/**
+ * Update a specific raw material for a BOM
+ */
+router.put("/:bomId/raw-materials", async (req, res) => {
+    const { bomId } = req.params;
+    const updatedMaterial = req.body;
+
     try {
-      const boms = await BOMItem.aggregate([
-        {
-          $lookup: {
-            from: 'salesorders', // Collection name for sales orders (make sure it's the correct name)
-            localField: 'salesOrderId', // Field in BOM that references the SalesOrder (you may have a different field name)
-            foreignField: '_id', // Field in SalesOrder that BOM references (e.g., '_id')
-            as: 'salesOrderDetails' // Name of the new array field containing sales order details
-          }
-        },
-        {
-          $unwind: {
-            path: '$salesOrderDetails', // Flatten the array to get the first matching sales order details
-            preserveNullAndEmptyArrays: true // Include BOMs that don't have a matching sales order
-          }
-        },
-        {
-          $project: {
-            _id: 1,
-          salesOrderId: 1,
-          itemName: 1,
-          specifications: 1,
-          quantity: 1,
-          unit: 1,
-          vendor: 1,
-          isOutsourced: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          rawMaterials: 1,
-          salesOrderNumber: '$salesOrderDetails.salesOrderNumber',
-          }
+        const bomItem = await BOMItem.findById(bomId);
+        if (!bomItem) {
+            return res.status(404).json({ error: "BOM Item not found" });
         }
-      ]);
-      res.json(boms);
-    } catch (error) {
-      console.error('Error fetching BOMs:', error);
-      res.status(500).json({ message: 'Server error' });
+
+        // Find the raw material by name and update its details
+        const materialIndex = bomItem.rawMaterials.findIndex(
+            (material) => material.name === updatedMaterial.name
+        );
+
+        if (materialIndex === -1) {
+            return res.status(404).json({ error: "Raw Material not found" });
+        }
+
+        bomItem.rawMaterials[materialIndex] = updatedMaterial;
+        await bomItem.save();
+
+        res.status(200).json(bomItem);
+    } catch (err) {
+        res.status(500).json({ error: "Server error", details: err.message });
     }
-  });
-    
+});
+
+/**
+ * Get all BOMs with sales order details
+ */
+router.get("/", async (req, res) => {
+    try {
+        const boms = await BOMItem.aggregate([
+            {
+                $lookup: {
+                    from: "salesorders", // Collection name for sales orders
+                    localField: "salesOrderId",
+                    foreignField: "_id",
+                    as: "salesOrderDetails",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$salesOrderDetails",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $project: {
+                    _id: 1,
+                    salesOrderId: 1,
+                    itemName: 1,
+                    specifications: 1,
+                    quantity: 1,
+                    unit: 1,
+                    vendor: 1,
+                    isOutsourced: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    rawMaterials: 1,
+                    salesOrderNumber: "$salesOrderDetails.salesOrderNumber",
+                },
+            },
+        ]);
+        res.json(boms);
+    } catch (error) {
+        console.error("Error fetching BOMs:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 module.exports = router;
