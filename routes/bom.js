@@ -155,7 +155,7 @@ router.patch("/:bomId/raw-material/status", async (req, res) => {
 /**
  * Update a specific raw material for a BOM
  */
-router.put("/:bomId/raw-materials", async (req, res) => {
+router.put('/:bomId/raw-materials', async (req, res) => {
     const { bomId } = req.params;
     const updatedMaterial = req.body;
 
@@ -165,7 +165,6 @@ router.put("/:bomId/raw-materials", async (req, res) => {
             return res.status(404).json({ error: "BOM Item not found" });
         }
 
-        // Find the raw material by name and update its details
         const materialIndex = bomItem.rawMaterials.findIndex(
             (material) => material.name === updatedMaterial.name
         );
@@ -226,5 +225,20 @@ router.get("/", async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
+router.patch('/:bomId/raw-materials/:index/approve', async (req, res) => {
+    const { bomId, index } = req.params;
+    try {
+        const bomItem = await BOMItem.findById(bomId);
+        if (!bomItem) return res.status(404).json({ error: "BOM Item not found" });
 
+        const rawMaterialIndex = parseInt(index);
+        if (!bomItem.rawMaterials[rawMaterialIndex]) return res.status(404).json({ error: "Raw Material not found" });
+
+        bomItem.rawMaterials[rawMaterialIndex].approved = true; // Toggle the approval status
+        await bomItem.save();
+        res.json({ message: "Raw material approved", rawMaterials: bomItem.rawMaterials });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 module.exports = router;
