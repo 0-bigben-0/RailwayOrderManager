@@ -6,15 +6,25 @@ const SalesOrder = require('../models/SalesOrder');
 // Middleware to handle JSON requests
 router.use(express.json());
 
-// Get BOM by ID
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const bom = await BOMItem.findById(id);
+        const bom = await BOMItem.findById(id).populate({
+            path: 'salesOrderId', // assuming the field in BOM schema is salesOrderId
+            select: 'salesOrderNumber', // only get this field
+        });
+
         if (!bom) {
             return res.status(404).json({ message: "BOM not found" });
         }
-        res.json(bom);
+
+        // Manually attach salesOrderNumber for frontend
+        const bomWithOrderNumber = {
+            ...bom.toObject(),
+            salesOrderNumber: bom.salesOrderId?.salesOrderNumber || null
+        };
+
+        res.json(bomWithOrderNumber);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
