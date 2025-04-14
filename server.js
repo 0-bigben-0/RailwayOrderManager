@@ -19,6 +19,8 @@ app.use("/api/bom", bomRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/orders', orderRoutes); // Use orderRoutes here
 app.use('/api/sales-orders', salesOrderRoutes); // Use salesOrderRoutes here
+app.use("/bom", bomRoutes);
+
 
 // Connect MongoDB
 mongoose.connect("mongodb+srv://owner:dimensity@railwayordermanager.i52glc2.mongodb.net/?retryWrites=true&w=majority&appName=RailwayOrderManager", {

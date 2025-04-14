@@ -6,7 +6,12 @@ const RawMaterialSchema = new mongoose.Schema({
     quantity: { type: Number,},
     unit: { type: String },
     vendor: { type: String,},
-    approved: { type: Boolean, default: false } 
+    approved: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ["Pending", "Ordered", "In Transit", "Delivered"],
+      default: "Pending"
+    }
   }, { _id: false });
 
 const BOMItemSchema = new mongoose.Schema({
@@ -18,6 +23,7 @@ const BOMItemSchema = new mongoose.Schema({
   vendor: { type: String }, // to be assigned later
   isOutsourced: { type: Boolean, default: false },
   rawMaterials: [RawMaterialSchema]
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model("BOMItem", BOMItemSchema);
